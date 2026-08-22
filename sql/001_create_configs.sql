@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS configs (
+    id UUID PRIMARY KEY,
+    config TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

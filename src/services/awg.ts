@@ -30,8 +30,7 @@ interface WarpData {
   ipv6: string;
   peerPublicKey: string;
   endpointHost: string;
-  endpointIpv4?: string;
-  endpointIpv6?: string;
+  endpointPorts: number[];
 }
 
 export function buildAwg2Config(keys: WarpKeys, warp: WarpData): Awg2Config {
@@ -43,9 +42,9 @@ export function buildAwg2Config(keys: WarpKeys, warp: WarpData): Awg2Config {
     dns: "1.1.1.1",
     mtu: 1280,
 
-    jc: 3,
-    jmin: 64,
-    jmax: 128,
+    jc: 0,
+    jmin: 0,
+    jmax: 0,
 
     s1: 0,
     s2: 0,
@@ -59,7 +58,7 @@ export function buildAwg2Config(keys: WarpKeys, warp: WarpData): Awg2Config {
 
     peerPublicKey: warp.peerPublicKey,
 
-    allowedIPs: ["0.0.0.0/0"],
+    allowedIPs: ["0.0.0.0/0", "::/0"],
 
     endpoint: warp.endpointHost,
   };

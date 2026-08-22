@@ -11,17 +11,18 @@ export interface WarpConfig {
   ipv6: string;
   peerPublicKey: string;
   endpointHost: string;
-  endpointIpv4: string;
-  endpointIpv6: string;
+  endpointPorts: number[];
 }
 
 export interface WarpRegistrationResponse {
   id: string;
   token: string;
+
   account: {
     id: string;
     account_type: string;
   };
+
   config: {
     interface: {
       addresses: {
@@ -29,11 +30,15 @@ export interface WarpRegistrationResponse {
         v6: string;
       };
     };
+
     peers: Array<{
       public_key: string;
+
       endpoint: {
         host: string;
         ports: number[];
+        v4?: string;
+        v6?: string;
       };
     }>;
   };
@@ -44,6 +49,7 @@ export function generateWarpKeys(): WarpKeys {
 
   crypto.getRandomValues(privateKey);
 
+  // Clamp Curve25519 private key
   privateKey[0]! &= 248;
   privateKey[31]! &= 127;
   privateKey[31]! |= 64;
@@ -79,16 +85,20 @@ export async function registerWarp() {
     `https://api.cloudflareclient.com/${config.warp.apiVersion}/reg`,
     {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "okhttp/3.12.1",
         "CF-Client-Version": "a-6.10-2158",
       },
+
       body: JSON.stringify(body),
     },
   );
 
-  const data = await response.json();
+  const data = (await response.json()) as
+    | WarpRegistrationResponse
+    | Record<string, unknown>;
 
   if (!response.ok) {
     throw new Error(
@@ -96,22 +106,69 @@ export async function registerWarp() {
     );
   }
 
+  /*
+   * Safe debug logging.
+   *
+   * We intentionally DO NOT log:
+   * - privateKey
+   * - token
+   * - registration secrets
+   */
+  const registration = data as WarpRegistrationResponse;
+
+  console.log("WARP registration successful:");
+  console.log(
+    JSON.stringify(
+      {
+        id: registration.id,
+        account: registration.account,
+        interface: registration.config?.interface,
+        peers: registration.config?.peers?.map((peer) => ({
+          public_key: peer.public_key,
+          endpoint: peer.endpoint,
+        })),
+      },
+      null,
+      2,
+    ),
+  );
+
   return {
     keys,
-    data,
+    data: registration,
   };
 }
 
-export function parseWarpConfig(data: any): WarpConfig {
+export function parseWarpConfig(data: WarpRegistrationResponse): WarpConfig {
   const addresses = data.config.interface.addresses;
+
+  if (!addresses?.v4) {
+    throw new Error("WARP registration response has no IPv4 address");
+  }
+
+  if (!data.config.peers || data.config.peers.length === 0) {
+    throw new Error("WARP registration response has no peers");
+  }
+
   const peer = data.config.peers[0];
+
+  if (!peer) {
+    throw new Error("WARP peer is undefined");
+  }
+
+  if (!peer.public_key) {
+    throw new Error("WARP peer has no public key");
+  }
+
+  if (!peer.endpoint?.host) {
+    throw new Error("WARP peer has no endpoint host");
+  }
 
   return {
     ipv4: addresses.v4,
     ipv6: addresses.v6,
     peerPublicKey: peer.public_key,
     endpointHost: peer.endpoint.host,
-    endpointIpv4: peer.endpoint.v4,
-    endpointIpv6: peer.endpoint.v6,
+    endpointPorts: peer.endpoint.ports ?? [],
   };
 }

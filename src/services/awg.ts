@@ -61,6 +61,6 @@ export function buildAwg2Config(keys: WarpKeys, warp: WarpData): Awg2Config {
 
     allowedIPs: ["0.0.0.0/0"],
 
-    endpoint: `${warp.endpointHost}:2408`,
+    endpoint: warp.endpointHost,
   };
 }
